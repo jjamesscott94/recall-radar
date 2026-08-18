@@ -30,7 +30,9 @@ ENRICH_ENABLED = bool(TAVILY_API_KEY)
 # --- MCP server ---
 TRANSPORT = os.environ.get("RECALL_RADAR_TRANSPORT", "stdio")
 HOST = os.environ.get("RECALL_RADAR_HOST", "0.0.0.0")
-PORT = int(os.environ.get("RECALL_RADAR_PORT", "8000"))
+# Prefer RECALL_RADAR_PORT, then the standard PORT (Cloud Run sets PORT=8080),
+# then 8000 as a local default.
+PORT = int(os.environ.get("RECALL_RADAR_PORT", os.environ.get("PORT", "8000")))
 # Optional: URL to fetch the latest recalls.json from (e.g. the GitHub raw URL).
 # When set, the server refreshes its in-memory dataset from this URL on a
 # schedule, so a hosted instance stays fresh without redeploying.
