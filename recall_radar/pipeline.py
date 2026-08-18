@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import time
 from datetime import datetime, timezone
 
 from . import config
@@ -112,9 +113,12 @@ def run() -> dict:
             if budget <= 0:
                 log.info("enrichment budget exhausted; %d remain unenriched", len(to_enrich))
                 break
+            # Decrement on EVERY attempt (success or failure) so a burst of
+            # failures can never exceed the per-run cap and trip rate limits.
+            budget -= 1
             _enrich(rec)
-            if rec.get("_enriched"):
-                budget -= 1
+            # Small pause keeps us well under Tavily's 20 RPM research limit.
+            time.sleep(config.ENRICH_INTERVAL_SECONDS)
     else:
         log.info("no TAVILY_API_KEY set — skipping enrichment (openFDA-only run)")
 

@@ -85,7 +85,6 @@ def normalize_record(raw: dict) -> dict:
 # drives the "dense understanding" of each recall: who the company is, what
 # brands they own, their recall history, and reporting-controls red flags.
 ENRICHMENT_SCHEMA = {
-    "type": "object",
     "properties": {
         "parent_company": {
             "type": "string",
@@ -114,8 +113,8 @@ ENRICHMENT_SCHEMA = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "year": {"type": "string"},
-                    "summary": {"type": "string"},
+                    "year": {"type": "string", "description": "The year of the prior recall."},
+                    "summary": {"type": "string", "description": "Brief summary of the prior recall."},
                 },
                 "required": ["year", "summary"],
             },

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recall Radar — Active US Food Recalls</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --border: #2a2e38;
+    --fg: #e6e8ec;
+    --muted: #8b93a3;
+    --accent: #4f8cff;
+    --red: #ff5c5c;
+    --amber: #ffb020;
+    --green: #3ecf8e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.5;
+  }
+  header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  header h1 { margin: 0; font-size: 22px; font-weight: 700; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  .freshness { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .freshness .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+  .dot.green { background: var(--green); }
+  .dot.amber { background: var(--amber); }
+  .dot.red { background: var(--red); }
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    padding: 24px 32px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .stat .num { font-size: 28px; font-weight: 700; }
+  .stat .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  .stat.class1 .num { color: var(--red); }
+  .stat.class2 .num { color: var(--amber); }
+  .stat.class3 .num { color: var(--green); }
+  .controls {
+    padding: 0 32px 16px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .controls input {
+    flex: 1;
+    min-width: 200px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--fg);
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+  .controls select {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--fg);
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+  .list { padding: 0 32px 32px; }
+  .recall {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+  }
+  .recall.class1 { border-left-color: var(--red); }
+  .recall.class2 { border-left-color: var(--amber); }
+  .recall.class3 { border-left-color: var(--green); }
+  .recall .top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .recall .firm { font-weight: 700; font-size: 16px; }
+  .recall .badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .badge.class1 { background: rgba(255,92,92,.15); color: var(--red); }
+  .badge.class2 { background: rgba(255,176,32,.15); color: var(--amber); }
+  .badge.class3 { background: rgba(62,207,142,.15); color: var(--green); }
+  .recall .product { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .recall .reason { font-size: 14px; margin-top: 8px; }
+  .recall .meta { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .recall .enrich { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 13px; }
+  .recall .enrich .flags { color: var(--red); }
+  .recall .enrich .brands { color: var(--accent); }
+  .empty { color: var(--muted); text-align: center; padding: 40px; }
+  footer { padding: 16px 32px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🥫 Recall Radar</h1>
+  <span class="sub">Active US food recalls — nightly intelligence for what to avoid</span>
+  <span class="freshness"><span class="dot amber" id="fresh-dot"></span><span id="fresh-text">loading…</span></span>
+</header>
+
+<div class="stats" id="stats"></div>
+
+<div class="controls">
+  <input id="search" type="text" placeholder="Search brand, company, product, contaminant, state…">
+  <select id="class-filter">
+    <option value="">All classes</option>
+    <option value="Class I">Class I (severe)</option>
+    <option value="Class II">Class II</option>
+    <option value="Class III">Class III</option>
+  </select>
+  <select id="sort">
+    <option value="severity">Sort: severity</option>
+    <option value="recent">Sort: most recent</option>
+    <option value="firm">Sort: company A–Z</option>
+  </select>
+</div>
+
+<div class="list" id="list"></div>
+
+<footer>
+  Data: <a href="https://open.fda.gov" target="_blank">openFDA</a> (FDA + USDA/FSIS) ·
+  Enriched with Tavily Pro Research ·
+  <a href="https://github.com/jjamesscott94/recall-radar" target="_blank">Source & MCP server</a>
+</footer>
+
+<script>
+let DATA = { recalls: [] };
+
+async function load() {
+  try {
+    const res = await fetch('data/recalls.json', { cache: 'no-store' });
+    DATA = await res.json();
+    render();
+  } catch (e) {
+    document.getElementById('list').innerHTML = '<div class="empty">Failed to load data/recalls.json — run the pipeline first.</div>';
+  }
+}
+
+function render() {
+  const recalls = DATA.recalls || [];
+  const gen = DATA.generated_at;
+
+  // Freshness
+  const dot = document.getElementById('fresh-dot');
+  const txt = document.getElementById('fresh-text');
+  if (gen) {
+    const ageH = (Date.now() - new Date(gen).getTime()) / 3600000;
+    if (ageH < 36) { dot.className = 'dot green'; txt.textContent = `updated ${Math.round(ageH)}h ago`; }
+    else if (ageH < 72) { dot.className = 'dot amber'; txt.textContent = `updated ${Math.round(ageH)}h ago`; }
+    else { dot.className = 'dot red'; txt.textContent = `stale — ${Math.round(ageH)}h old`; }
+  }
+
+  // Stats
+  const c1 = recalls.filter(r => r.classification === 'Class I').length;
+  const c2 = recalls.filter(r => r.classification === 'Class II').length;
+  const c3 = recalls.filter(r => r.classification === 'Class III').length;
+  const enriched = recalls.filter(r => r._enriched).length;
+  const firms = new Set(recalls.map(r => r.recalling_firm)).size;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="num">${recalls.length}</div><div class="label">Active recalls</div></div>
+    <div class="stat class1"><div class="num">${c1}</div><div class="label">Class I (severe)</div></div>
+    <div class="stat class2"><div class="num">${c2}</div><div class="label">Class II</div></div>
+    <div class="stat class3"><div class="num">${c3}</div><div class="label">Class III</div></div>
+    <div class="stat"><div class="num">${firms}</div><div class="label">Companies</div></div>
+    <div class="stat"><div class="num">${enriched}</div><div class="label">Enriched profiles</div></div>
+  `;
+
+  renderList();
+}
+
+function renderList() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const cls = document.getElementById('class-filter').value;
+  const sort = document.getElementById('sort').value;
+
+  let recs = DATA.recalls.filter(r => {
+    if (cls && r.classification !== cls) return false;
+    if (!q) return true;
+    const hay = JSON.stringify(r).toLowerCase();
+    return hay.includes(q);
+  });
+
+  const sev = { 'Class I': 1, 'Class II': 2, 'Class III': 3 };
+  if (sort === 'severity') recs.sort((a,b) => (sev[a.classification]||4) - (sev[b.classification]||4));
+  else if (sort === 'recent') recs.sort((a,b) => (b.report_date||'').localeCompare(a.report_date||''));
+  else recs.sort((a,b) => (a.recalling_firm||'').localeCompare(b.recalling_firm||''));
+
+  const list = document.getElementById('list');
+  if (!recs.length) { list.innerHTML = '<div class="empty">No matching recalls.</div>'; return; }
+
+  list.innerHTML = recs.slice(0, 200).map(r => {
+    const cls = r.classification || 'Unknown';
+    const clsKey = cls.toLowerCase().replace(' ', '');
+    const enr = r.enrichment || {};
+    const flags = (enr.reporting_controls_red_flags || []).slice(0, 3).join(' · ');
+    const brands = (enr.brands || []).slice(0, 5).join(', ');
+    return `
+      <div class="recall ${clsKey}">
+        <div class="top">
+          <span class="firm">${esc(r.recalling_firm || 'Unknown')}</span>
+          <span class="badge ${clsKey}">${cls}</span>
+          ${r.state ? `<span class="meta">${esc(r.state)}</span>` : ''}
+        </div>
+        <div class="product">${esc(r.product_description || '')}</div>
+        <div class="reason">${esc(r.reason_for_recall || '')}</div>
+        <div class="meta">
+          ${r.distribution_pattern ? 'Distribution: ' + esc(r.distribution_pattern) + ' · ' : ''}
+          ${r.report_date ? 'Reported ' + r.report_date : ''}
+        </div>
+        ${enr && Object.keys(enr).length ? `
+          <div class="enrich">
+            ${brands ? `<div class="brands">Brands: ${esc(brands)}</div>` : ''}
+            ${enr.parent_company ? `<div>Parent: ${esc(enr.parent_company)}</div>` : ''}
+            ${flags ? `<div class="flags">⚠ ${esc(flags)}</div>` : ''}
+          </div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('search').addEventListener('input', renderList);
+document.getElementById('class-filter').addEventListener('change', renderList);
+document.getElementById('sort').addEventListener('change', renderList);
+
+load();
+</script>
+</body>
+</html>

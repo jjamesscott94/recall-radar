@@ -12,8 +12,10 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from pathlib import Path
 
+import httpx
 from fastmcp import FastMCP
 
 from . import config
@@ -43,6 +45,40 @@ def _reload() -> None:
     global _dataset, _recalls
     _dataset = load()
     _recalls = _dataset.get("recalls", [])
+
+
+def _refresh_from_url() -> None:
+    """Fetch the latest dataset from DATA_URL and swap it in (best-effort)."""
+    global _dataset, _recalls
+    try:
+        with httpx.Client(timeout=30) as client:
+            resp = client.get(config.DATA_URL)
+            resp.raise_for_status()
+            data = resp.json()
+        if isinstance(data, dict) and "recalls" in data:
+            _dataset = data
+            _recalls = data.get("recalls", [])
+            log.info("refreshed dataset from URL: %d recalls (generated %s)",
+                     len(_recalls), data.get("generated_at"))
+        else:
+            log.warning("DATA_URL returned unexpected shape; keeping current dataset")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("refresh from DATA_URL failed: %s", exc)
+
+
+def _start_refresh_loop() -> None:
+    """Background thread that periodically re-fetches DATA_URL (if configured)."""
+    if not config.DATA_URL:
+        return
+
+    def loop():
+        while True:
+            threading.Event().wait(config.DATA_REFRESH_SECONDS)
+            _refresh_from_url()
+
+    t = threading.Thread(target=loop, daemon=True, name="recall-radar-refresh")
+    t.start()
+    log.info("started refresh loop: %s every %ds", config.DATA_URL, config.DATA_REFRESH_SECONDS)
 
 
 def _public(rec: dict) -> dict:
@@ -240,6 +276,7 @@ def dataset_stats() -> str:
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     log.info("loaded %d recalls (generated %s)", len(_recalls), _dataset.get("generated_at"))
+    _start_refresh_loop()
 
     if config.TRANSPORT == "streamable-http":
         log.info("serving streamable-http on %s:%d", config.HOST, config.PORT)
