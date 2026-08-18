@@ -94,10 +94,20 @@ at the pipeline to keep the dataset fresh.
 
 ## Nightly automation
 
-The GitHub Actions workflow (`.github/workflows/nightly.yml`) runs daily at 08:00 UTC,
-pulls openFDA, enriches new recalls via Tavily, and commits the updated
-`data/recalls.json` back to the repo. To enable enrichment, add your Tavily key as a
-repo secret:
+The pipeline runs **every other day** (odd days of the month, 08:00 UTC) to keep
+Tavily spend bounded. The schedule is owned by **Google Cloud Scheduler**, which
+fires a small Cloud Function that triggers the GitHub Actions workflow via
+`workflow_dispatch` — a single source of truth, with the GitHub token held in
+Secret Manager (never in the repo).
+
+```
+Cloud Scheduler (0 8 */2 * *)  →  Cloud Function (OIDC-auth)  →  GitHub workflow_dispatch
+                                                                      │
+                                                                      ▼
+                                              openFDA pull → Tavily enrich → commit data/recalls.json
+```
+
+To enable enrichment, add your Tavily key as a repo secret:
 
 ```
 Settings → Secrets and variables → Actions → New repository secret
@@ -106,7 +116,14 @@ Value: tvly-...
 ```
 
 Without the secret, the workflow still runs and updates the openFDA data — it just skips
-the Tavily enrichment layer.
+the Tavily enrichment layer. The `gcp/trigger-function/` directory contains the Cloud
+Function source for anyone who wants to reproduce the scheduler wiring.
+
+## Web dashboard
+
+A zero-dependency dashboard (`index.html`) renders the dataset for humans — served
+via GitHub Pages. It shows the active-recall counts by severity, a searchable/filterable
+list, and the enriched "brands to avoid" profiles with red flags.
 
 ## Data sources & coverage
 
@@ -125,7 +142,7 @@ All via environment variables (see `.env.example`):
 | `TAVILY_API_KEY` | *(empty)* | Enables enrichment when set |
 | `TAVILY_MODEL` | `pro` | Tavily research model |
 | `RECALL_RADAR_DATA_DIR` | `data` | Where `recalls.json` lives |
-| `RECALL_RADAR_MAX_ENRICH` | `20` | Max recalls enriched per run (spend guard) |
+| `RECALL_RADAR_MAX_ENRICH` | `10` | Max recalls enriched per run (spend guard) |
 | `RECALL_RADAR_TRANSPORT` | `stdio` | `stdio` or `streamable-http` |
 | `RECALL_RADAR_HOST` / `RECALL_RADAR_PORT` | `0.0.0.0` / `8000` | HTTP bind |
 
