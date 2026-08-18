@@ -105,7 +105,14 @@ def run() -> dict:
 
     # Enrichment: new records first, then any re-queued (changed) records.
     if config.ENRICH_ENABLED:
-        to_enrich = [r for r in merged if not r.get("_enriched")]
+        # Exclude records that are already enriched or have exhausted their
+        # attempt budget — otherwise the per-run budget is wasted on no-ops.
+        to_enrich = [
+            r
+            for r in merged
+            if not r.get("_enriched")
+            and r.get("_enrich_attempts", 0) < config.MAX_ENRICH_ATTEMPTS
+        ]
         # New records take priority.
         to_enrich.sort(key=lambda r: 0 if r["id"] in new_ids else 1)
         budget = config.MAX_ENRICH_PER_RUN

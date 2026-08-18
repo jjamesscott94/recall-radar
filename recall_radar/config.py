@@ -13,7 +13,10 @@ OPENFDA_RETRY_BACKOFF_SECONDS = float(os.environ.get("RECALL_RADAR_OPENFDA_BACKO
 # --- Tavily Pro Research ---
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "").strip()
 TAVILY_BASE_URL = os.environ.get("TAVILY_BASE_URL", "https://api.tavily.com")
-TAVILY_MODEL = os.environ.get("TAVILY_MODEL", "pro")
+# Default to "mini" (4-110 credits/request) rather than "pro" (15-250) to keep
+# monthly spend bounded. Override with TAVILY_MODEL=pro if richer output is
+# worth the ~4x cost.
+TAVILY_MODEL = os.environ.get("TAVILY_MODEL", "mini")
 
 # --- Data ---
 DATA_DIR = Path(os.environ.get("RECALL_RADAR_DATA_DIR", "data"))
@@ -42,3 +45,9 @@ PORT = int(os.environ.get("RECALL_RADAR_PORT", os.environ.get("PORT", "8000")))
 DATA_URL = os.environ.get("RECALL_RADAR_DATA_URL", "").strip()
 # How often (seconds) to re-fetch DATA_URL. Default 6h.
 DATA_REFRESH_SECONDS = int(os.environ.get("RECALL_RADAR_DATA_REFRESH_SECONDS", "21600"))
+
+# --- Rate limiting (hosted streamable-http transport only) ---
+# Per-IP sliding-window cap. Bounds the cost of a public endpoint: a flood
+# gets 429'd before it can rack up Cloud Run compute.
+RATE_LIMIT_REQUESTS = int(os.environ.get("RECALL_RADAR_RATE_LIMIT_REQUESTS", "60"))
+RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("RECALL_RADAR_RATE_LIMIT_WINDOW", "60"))

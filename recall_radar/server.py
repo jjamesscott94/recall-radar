@@ -17,8 +17,10 @@ from pathlib import Path
 
 import httpx
 from fastmcp import FastMCP
+from starlette.middleware import Middleware as ASGIMiddleware
 
 from . import config
+from .rate_limit import RateLimitMiddleware
 from .store import load
 
 log = logging.getLogger("recall-radar.server")
@@ -123,8 +125,9 @@ def search_recalls(query: str, limit: int = 20) -> str:
     """
     limit = max(1, min(limit, 100))
     hits = [r for r in _recalls if _match(r, query)]
-    # Most severe first, then most recent.
-    hits.sort(key=lambda r: (r.get("severity_rank", 4), r.get("report_date") or ""), reverse=False)
+    # Most severe first, then most recent within each severity.
+    hits.sort(key=lambda r: r.get("report_date") or "", reverse=True)
+    hits.sort(key=lambda r: r.get("severity_rank", 4))
     return json.dumps([_public(r) for r in hits[:limit]], ensure_ascii=False, indent=2)
 
 
@@ -153,7 +156,9 @@ def list_active_recalls(classification: str | None = None, limit: int = 50) -> s
     recs = _recalls
     if classification:
         recs = [r for r in recs if (r.get("classification") or "").lower() == classification.lower()]
-    recs = sorted(recs, key=lambda r: (r.get("severity_rank", 4), r.get("report_date") or ""))
+    # Most severe first, then most recent within each severity.
+    recs = sorted(recs, key=lambda r: r.get("report_date") or "", reverse=True)
+    recs = sorted(recs, key=lambda r: r.get("severity_rank", 4))
     return json.dumps([_public(r) for r in recs[:limit]], ensure_ascii=False, indent=2)
 
 
@@ -280,7 +285,21 @@ def main() -> None:
 
     if config.TRANSPORT == "streamable-http":
         log.info("serving streamable-http on %s:%d", config.HOST, config.PORT)
-        mcp.run(transport="streamable-http", host=config.HOST, port=config.PORT)
+        # Per-IP rate limiting bounds the cost of a public endpoint. Applied
+        # only to the hosted transport; stdio is a local, trusted channel.
+        middleware = [
+            ASGIMiddleware(
+                RateLimitMiddleware,
+                max_requests=config.RATE_LIMIT_REQUESTS,
+                window_seconds=config.RATE_LIMIT_WINDOW_SECONDS,
+            )
+        ]
+        mcp.run(
+            transport="streamable-http",
+            host=config.HOST,
+            port=config.PORT,
+            middleware=middleware,
+        )
     else:
         log.info("serving stdio")
         mcp.run(transport="stdio")

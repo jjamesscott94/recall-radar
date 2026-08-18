@@ -140,11 +140,28 @@ All via environment variables (see `.env.example`):
 | Variable | Default | Purpose |
 |---|---|---|
 | `TAVILY_API_KEY` | *(empty)* | Enables enrichment when set |
-| `TAVILY_MODEL` | `pro` | Tavily research model |
+| `TAVILY_MODEL` | `mini` | Tavily research model (`mini` 4–110 credits/req, `pro` 15–250) |
 | `RECALL_RADAR_DATA_DIR` | `data` | Where `recalls.json` lives |
 | `RECALL_RADAR_MAX_ENRICH` | `10` | Max recalls enriched per run (spend guard) |
 | `RECALL_RADAR_TRANSPORT` | `stdio` | `stdio` or `streamable-http` |
 | `RECALL_RADAR_HOST` / `RECALL_RADAR_PORT` | `0.0.0.0` / `8000` | HTTP bind |
+| `RECALL_RADAR_DATA_URL` | *(empty)* | URL to self-refresh the dataset from (hosted) |
+| `RECALL_RADAR_RATE_LIMIT_REQUESTS` | `60` | Per-IP requests per window (hosted) |
+| `RECALL_RADAR_RATE_LIMIT_WINDOW` | `60` | Rate-limit window in seconds (hosted) |
+
+## Security & cost posture
+
+See [SECURITY.md](SECURITY.md) for the full picture. The short version:
+
+- **The Tavily key is never committed** — it lives only in GitHub Actions secrets,
+  Secret Manager, or your local (gitignored) `.env`.
+- **The expensive path is not public** — Tavily enrichment runs only inside the
+  nightly workflow, which is triggered exclusively by a locked-down Cloud Function.
+- **The public endpoint is read-only and rate-limited** — it serves the committed
+  `recalls.json` from memory (no Tavily, no writes) and enforces a per-IP
+  sliding-window cap, so a flood gets `429` before it costs anything meaningful.
+- **Spend is bounded** — `mini` model by default, `RECALL_RADAR_MAX_ENRICH=10`
+  per run, every-other-day schedule.
 
 ## License
 

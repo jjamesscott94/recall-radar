@@ -10,6 +10,7 @@ keywords = ["food-safety", "recalls", "openfda", "tavily", "mcp", "agents"]
 dependencies = [
     "fastmcp>=3.0",
     "httpx>=0.27",
+    "starlette>=0.40",
 ]
 
 [project.scripts]
