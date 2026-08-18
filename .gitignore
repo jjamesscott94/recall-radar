@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.uv/
+
+# Env / secrets
+.env
+.env.local
+
+# Data artifacts (regenerated nightly; recalls.json is committed intentionally)
+data/*.tmp
+data/*.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
