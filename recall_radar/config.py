@@ -6,6 +6,9 @@ from pathlib import Path
 # --- openFDA ---
 OPENFDA_BASE_URL = os.environ.get("OPENFDA_BASE_URL", "https://api.fda.gov")
 OPENFDA_ENDPOINT = "/food/enforcement.json"
+# Retry transient openFDA 5xx errors (the API occasionally hiccups under load).
+OPENFDA_MAX_RETRIES = int(os.environ.get("RECALL_RADAR_OPENFDA_RETRIES", "4"))
+OPENFDA_RETRY_BACKOFF_SECONDS = float(os.environ.get("RECALL_RADAR_OPENFDA_BACKOFF", "2"))
 
 # --- Tavily Pro Research ---
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "").strip()
