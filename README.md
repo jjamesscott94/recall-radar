@@ -35,37 +35,50 @@ FastMCP server (stdio or streamable-http)   ← agents query it
 
 ## Quick start
 
+**Requirements:** Python 3.10+ and [`uv`](https://docs.astral.sh/uv/) (recommended).
+`uv` handles the virtualenv and dependencies for you, so there's no manual
+install step.
+
 ### 1. Run the MCP server locally (stdio)
 
 ```bash
-git clone https://github.com/<you>/recall-radar.git
+git clone https://github.com/jjamesscott94/recall-radar.git
 cd recall-radar
-pip install -e .
-recall-radar-server          # stdio transport by default
+uv run recall-radar-server          # stdio transport by default
 ```
 
-Point any MCP client at it. For example, in a Claude/Cursor-style config:
+Point any MCP client at it. The robust form uses `uv run --directory` with an
+absolute path, so it works regardless of the client's working directory:
 
 ```json
 {
   "mcpServers": {
     "recall-radar": {
-      "command": "recall-radar-server",
-      "args": []
+      "command": "uv",
+      "args": ["run", "--directory", "/absolute/path/to/recall-radar", "recall-radar-server"]
     }
   }
 }
+```
+
+If you prefer `pip` over `uv`:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install --upgrade pip   # required: stock pip can't do editable installs
+.venv/bin/pip install -e .
+.venv/bin/recall-radar-server
 ```
 
 ### 2. Run the pipeline yourself
 
 ```bash
 # OpenFDA-only (no key needed — still produces a valid dataset):
-recall-radar
+uv run recall-radar
 
 # With Tavily enrichment:
 export TAVILY_API_KEY=tvly-...
-recall-radar
+uv run recall-radar
 ```
 
 ### 3. Host it as a network endpoint (optional)
@@ -73,7 +86,7 @@ recall-radar
 ```bash
 export RECALL_RADAR_TRANSPORT=streamable-http
 export RECALL_RADAR_PORT=8000
-recall-radar-server
+uv run recall-radar-server
 # → http://localhost:8000/mcp  (streamable HTTP MCP endpoint)
 ```
 
